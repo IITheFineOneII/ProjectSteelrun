@@ -5,7 +5,6 @@
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
 #include "Logging/LogMacros.h"
-#include "Abilities/SteelAllomancyComponent.h"
 #include "ProjectSteelrunCharacter.generated.h"
 
 class USpringArmComponent;
@@ -65,9 +64,6 @@ protected:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Allomancy")
 	float IronAmount;
 
-	// Instance Pointer to the Allomancy HUD widget
-	UPROPERTY()
-	UUserWidget* AllomancyHUDWidget;
 
 	// The widget class to create
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
@@ -133,9 +129,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category = "Allomancy")
 	TArray<AActor*> GetNearbyMetalObjects(float Radius);
-
-	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Allomancy")
-	USteelAllomancyComponent* SteelAllomancy;
 
 	virtual void Tick(float DeltaTime) override;
 
