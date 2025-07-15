@@ -4,6 +4,8 @@
 #include "Abilities/SteelAllomancy.h"
 #include "MetalInteractable.h"
 #include "Engine/OverlapResult.h"
+#include "ProjectSteelrunCharacter.h"
+#include "EnhancedInputComponent.h"
 
 USteelAllomancy::USteelAllomancy()
 {
@@ -34,11 +36,11 @@ TArray<AActor*> USteelAllomancy::GetNearbyMetalObjects(float Radius)
 {
 	TArray<AActor*> FoundActors;
 
-	FVector Center = Owner->GetActorLocation();
+	FVector Center = CharacterOwner->GetActorLocation();
 	TArray<FOverlapResult> OverlapResults;
 
 	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(Owner);
+	Params.AddIgnoredActor(CharacterOwner);
 
 	bool bHasHit = GetWorld()->OverlapMultiByObjectType(
 		OverlapResults,
@@ -73,7 +75,7 @@ void USteelAllomancy::GenerateSteellines()
 {
 	TArray<AActor*> NearbyMetals = GetNearbyMetalObjects(SteelSightRadius);
 
-	FVector StartLocation = Owner->GetActorLocation() + FVector(0, 0, 40); // Middle of chest
+	FVector StartLocation = CharacterOwner->GetActorLocation() + FVector(0, 0, 40); // Middle of chest
 
 	for (AActor* Object : NearbyMetals)
 	{
@@ -111,5 +113,22 @@ void USteelAllomancy::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 			IsSteelSightActive = false;
 			UE_LOG(LogTemp, Warning, TEXT("Steelsight Deactivated due to resource depletion"));
 		}
+		GenerateSteellines();
 	}
+}
+
+void USteelAllomancy::BindInput(UEnhancedInputComponent* InputComponent)
+{
+	AProjectSteelrunCharacter* PlayerOwner = Cast<AProjectSteelrunCharacter>(GetOwner());
+	if (!InputComponent || !PlayerOwner || !PlayerOwner->ToggleSightAbilityAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SteelAllomancy::BindInput - Missing input/action"));
+		return;
+	}
+	InputComponent->BindAction(
+		PlayerOwner->ToggleSightAbilityAction,
+		ETriggerEvent::Started,
+		this,
+		&USteelAllomancy::ToggleSteelsight
+	);
 }

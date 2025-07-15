@@ -5,6 +5,7 @@
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "GameFramework/CharacterMovementComponent.h"
+#include "Abilities/Helpers/AllomancyComponentFactory.h"
 #include "GameFramework/SpringArmComponent.h"
 #include "GameFramework/Controller.h"
 #include "EnhancedInputComponent.h"
@@ -13,6 +14,8 @@
 #include "Blueprint/UserWidget.h"
 #include "MetalInteractable.h"
 #include "Engine/OverlapResult.h" 
+#include "Abilities/Allomancy.h"
+#include "Enums/Metal.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
 
@@ -50,12 +53,7 @@ AProjectSteelrunCharacter::AProjectSteelrunCharacter()
 	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
 	FollowCamera->bUsePawnControlRotation = false;
 
-	// Note: The skeletal mesh and anim blueprint references on the Mesh component (inherited from Character) 
-	// are set in the derived blueprint asset named ThirdPersonCharacter (to avoid direct content references in C++)
 
-	//Initialize reserves to full
-	SteelAmount = 100.f;
-	IronAmount = 100.f;
 }
 
 void AProjectSteelrunCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputComponent)
@@ -73,8 +71,6 @@ void AProjectSteelrunCharacter::SetupPlayerInputComponent(UInputComponent* Playe
 
 		// Looking
 		EnhancedInputComponent->BindAction(LookAction, ETriggerEvent::Triggered, this, &AProjectSteelrunCharacter::Look);
-
-		EnhancedInputComponent->BindAction(ToggleSteelsightAction, ETriggerEvent::Started, this, &AProjectSteelrunCharacter::ToggleSteelsight);
 	}
 	else
 	{
@@ -142,198 +138,56 @@ void AProjectSteelrunCharacter::DoJumpEnd()
 	StopJumping();
 }
 
-void AProjectSteelrunCharacter::ToggleSteelsight()
-{
-	bIsSteelSightActive = !bIsSteelSightActive;
-
-	if (bIsSteelSightActive)
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Steelsight Activated"));
-
-		// TODO: Apply grayscale effect
-		// TODO: Start draining steel/iron
-	}
-	else
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Steelsight Deactivated"));
-
-		// TODO: Remove grayscale effect
-		// TODO: Stop draining steel/iron
-	}
-}
-
-// Setters (clamped between 0 and 100)
-void AProjectSteelrunCharacter::SetSteelAmount(float NewAmount)
-{
-	SteelAmount = FMath::Clamp(NewAmount, 0.f, 100.f);
-}
-
-void AProjectSteelrunCharacter::SetIronAmount(float NewAmount)
-{
-	IronAmount = FMath::Clamp(NewAmount, 0.f, 100.f);
-}
-
-float AProjectSteelrunCharacter::GetSteelAmount() const
-{
-	return SteelAmount;
-}
-
-float AProjectSteelrunCharacter::GetIronAmount() const
-{
-	return IronAmount;
-}
-
 void AProjectSteelrunCharacter::BeginPlay()
 {
 	Super::BeginPlay();
-	if (AllomancyHUDClass)
-	{
-		UUserWidget* TempWidget = CreateWidget<UUserWidget>(GetWorld(), AllomancyHUDClass);
-		if (TempWidget)
-		{
-			TempWidget->AddToViewport();
-
-			// Call the Blueprint event "InitializeFromCharacter" and pass "this"
-			FName EventName(TEXT("InitializeFromCharacter"));
-			if (TempWidget->IsA(AllomancyHUDClass))
-			{
-				UFunction* Func = TempWidget->FindFunction(EventName);
-				if (Func)
-				{
-					struct FInitializeParams
-					{
-						AProjectSteelrunCharacter* CharacterRef;
-					};
-					FInitializeParams Params;
-					Params.CharacterRef = this;
-					TempWidget->ProcessEvent(Func, &Params);
-				}
-			}
-		}
-	}
+	SetPlayerClass(EMetal::Steel);
 }
 
-void AProjectSteelrunCharacter::Tick(float DeltaTime)
+void AProjectSteelrunCharacter::PostInitializeComponents()
 {
-	Super::Tick(DeltaTime);
-
-	if (bIsSteelSightActive)
-	{
-		float DrainRate = 1.0f; // units per second
-
-		// Drain logic
-		if (IronAmount > 0 && SteelAmount > 0)
-		{
-			IronAmount -= DrainRate * DeltaTime;
-			SteelAmount -= DrainRate * DeltaTime;
-		}
-		else if (IronAmount <= 0 && SteelAmount > 0)
-		{
-			SteelAmount -= DrainRate * 2 * DeltaTime;
-		}
-		else if (SteelAmount <= 0 && IronAmount > 0)
-		{
-			IronAmount -= DrainRate * 2 * DeltaTime;
-		}
-
-		// Clamp to zero
-		IronAmount = FMath::Max(IronAmount, 0.0f);
-		SteelAmount = FMath::Max(SteelAmount, 0.0f);
-
-		// Optional: Auto-disable when both depleted
-		if (IronAmount <= 0 && SteelAmount <= 0)
-		{
-			bIsSteelSightActive = false;
-		}
-
-		float SearchRadius = 1500.0f;
-		TArray<AActor*> NearbyMetals = GetNearbyMetalObjects(SearchRadius);
-
-		FVector StartLocation = GetActorLocation() + FVector(0, 0, 50); // Middle of chest
-
-		for (AActor* Metal : NearbyMetals)
-		{
-			if (!Metal) continue;
-
-			// Try to get the mesh or collision component
-			UPrimitiveComponent* PrimComp = Cast<UPrimitiveComponent>(Metal->GetComponentByClass(UPrimitiveComponent::StaticClass()));
-			FVector TargetLocation = Metal->GetActorLocation(); // Default fallback
-
-			if (PrimComp)
-			{
-				FVector ClosestPoint;
-				PrimComp->GetClosestPointOnCollision(StartLocation, ClosestPoint);
-				TargetLocation = ClosestPoint;
-			}
-
-			bool bIsTarget = IMetalInteractable::Execute_IsTarget(Metal);
-			if (bIsTarget)
-			{
-				DrawDebugLine(
-					GetWorld(),
-					StartLocation,
-					TargetLocation,
-					FColor::Orange,
-					false,
-					0.0f,
-					0,
-					2.0f
-				);
-			}
-			else
-			{
-				DrawDebugLine(
-					GetWorld(),
-					StartLocation,
-					TargetLocation,
-					FColor::Blue,
-					false,
-					0.0f,
-					0,
-					2.0f
-				);
-			}
+	Super::PostInitializeComponents();
 
 
-		}
-	}
 }
 
-TArray<AActor*> AProjectSteelrunCharacter::GetNearbyMetalObjects(float Radius)
+void AProjectSteelrunCharacter::SetPlayerClass(EMetal Metal)
 {
-	TArray<AActor*> FoundActors;
+	UE_LOG(LogTemp, Log, TEXT("SetPlayerClass called with metal: %d"), (int32)Metal);
 
-	FVector Center = GetActorLocation();
-	TArray<FOverlapResult> OverlapResults;
-
-	FCollisionQueryParams Params;
-	Params.AddIgnoredActor(this);
-
-	bool bHasHit = GetWorld()->OverlapMultiByObjectType(
-		OverlapResults,
-		Center,
-		FQuat::Identity,
-		FCollisionObjectQueryParams(ECollisionChannel::ECC_WorldDynamic),
-		FCollisionShape::MakeSphere(Radius),
-		Params
-	);
-
-	if (bHasHit)
+	// Get the class
+	TSubclassOf<UAllomancy> AllomanticType = AllomancyComponentFactory::GetAllomancyType(Metal);
+	if (!AllomanticType)
 	{
-		for (const FOverlapResult& Result : OverlapResults)
-		{
-			AActor* Actor = Result.GetActor();
-			if (Actor && Actor->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
-			{
-				UE_LOG(LogTemp, Warning, TEXT("Target Found"));
-				bool bIsMetallic = IMetalInteractable::Execute_IsMetal(Actor);
-				if (bIsMetallic)
-				{
-					FoundActors.Add(Actor);
-				}
-			}
-		}
+		UE_LOG(LogTemp, Warning, TEXT("No AllomanticType found for metal %d"), (int32)Metal);
+		return;
 	}
 
-	return FoundActors;
+	// Clean up old one
+	if (Allomancy)
+	{
+		Allomancy->DestroyComponent();
+		Allomancy = nullptr;
+	}
+
+	// Spawn new one
+	Allomancy = NewObject<UAllomancy>(this, AllomanticType, TEXT("AllomancyComponent"));
+	if (Allomancy)
+	{
+		Allomancy->RegisterComponent();
+		Allomancy->CreationMethod = EComponentCreationMethod::Instance;
+		Allomancy->SetMetal(Metal);
+		if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
+		{
+			Allomancy->BindInput(EnhancedInput);
+		}
+		
+
+		UE_LOG(LogTemp, Log, TEXT("Created Allomancy component: %s"), *Allomancy->GetName());
+	}
+	else
+	{
+		UE_LOG(LogTemp, Error, TEXT("Failed to create Allomancy component"));
+	}
 }
+

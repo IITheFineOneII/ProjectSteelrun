@@ -18,6 +18,8 @@ public:
 	
 	/** Constructor */
 	AProjectSteelrunGameMode();
+
+	virtual void BeginPlay() override;
 };
 
 

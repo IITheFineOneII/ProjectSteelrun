@@ -4,13 +4,15 @@
 
 #include "CoreMinimal.h"
 #include "GameFramework/Character.h"
+#include "Enums/Metal.h"
 #include "Logging/LogMacros.h"
 #include "ProjectSteelrunCharacter.generated.h"
 
 class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
-class UWBP_AllomancyHUD;
+class UAllomancy;
+class AllomancyComponentFactory;
 struct FInputActionValue;
 
 DECLARE_LOG_CATEGORY_EXTERN(LogTemplateCharacter, Log, All);
@@ -31,7 +33,7 @@ class AProjectSteelrunCharacter : public ACharacter
 	/** Follow camera */
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = Camera, meta = (AllowPrivateAccess = "true"))
 	UCameraComponent* FollowCamera;
-	
+
 protected:
 
 	/** Jump Input Action */
@@ -51,34 +53,21 @@ protected:
 	UInputAction* MouseLookAction;
 
 
-	#pragma region Allomancy
-	UPROPERTY(BlueprintReadOnly, Category = "Allomancy")
-	bool bIsSteelSightActive = false;
 
-	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Input")
-	UInputAction* ToggleSteelsightAction;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Allomancy")
-	float SteelAmount;
-
-	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Allomancy")
-	float IronAmount;
-
-
-	// The widget class to create
-	UPROPERTY(EditDefaultsOnly, Category = "UI")
-	TSubclassOf<UUserWidget> AllomancyHUDClass;
-	#pragma endregion
-
-
-
-
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UAllomancy* Allomancy = nullptr;
 public:
 
 	/** Constructor */
 	AProjectSteelrunCharacter();	
 
 	virtual void BeginPlay() override;
+
+	virtual void PostInitializeComponents() override;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* ToggleSightAbilityAction;
+
 
 protected:
 
@@ -93,6 +82,9 @@ protected:
 	/** Called for looking input */
 	void Look(const FInputActionValue& Value);
 
+	void SetPlayerClass(EMetal Metal);
+
+	
 public:
 
 	/** Handles move inputs from either controls or UI interfaces */
@@ -111,26 +103,9 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
 
-	UFUNCTION()
-	void ToggleSteelsight();
 
-	UFUNCTION(BlueprintCallable, Category = "Allomancy")
-	float GetSteelAmount() const;
 
-	UFUNCTION(BlueprintCallable, Category = "Allomancy")
-	float GetIronAmount() const;
 
-	// Setters (if needed)
-	UFUNCTION(BlueprintCallable, Category = "Allomancy")
-	void SetSteelAmount(float NewAmount);
-
-	UFUNCTION(BlueprintCallable, Category = "Allomancy")
-	void SetIronAmount(float NewAmount);
-
-	UFUNCTION(BlueprintCallable, Category = "Allomancy")
-	TArray<AActor*> GetNearbyMetalObjects(float Radius);
-
-	virtual void Tick(float DeltaTime) override;
 
 public:
 

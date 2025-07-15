@@ -16,24 +16,35 @@ UAllomancy::UAllomancy(EMetal metal)
 {
 	PrimaryComponentTick.bCanEverTick = true;
 	Metal = metal;
+
 }
 
 
 // Called when the game starts
 void UAllomancy::BeginPlay()
 {
-	UAllomancyHUD* HUD = CreateWidget<UAllomancyHUD>(GetWorld(), AllomancyHUDClass);
 	Super::BeginPlay();
-	if (AllomancyHUDClass)
+	InitializeHUD();
+	UUserWidget* HUDWidget = CreateWidget<UUserWidget>(GetWorld(), AllomancyHUD);
+	if (HUDWidget)
 	{
-		HUD->AddToViewport();
-		HUD->InitializeFromCharacter(this); // Passing self to fill the mana bar
+		HUDWidget->AddToViewport();
+		static FName InitFunctionName(TEXT("InitializeFromAllomancy"));
+
+		if (UFunction* Function = HUDWidget->FindFunction(InitFunctionName))
+		{
+			struct FInitializeFromAllomancyParams
+			{
+				UAllomancy* AllomancyRef;
+			};
+
+			FInitializeFromAllomancyParams Params;
+			Params.AllomancyRef = this;
+
+			HUDWidget->ProcessEvent(Function, &Params);
+		}
 	}
-	else 
-	{
-		UE_LOG(LogTemp, Warning, TEXT("Allomancy HUD Class not set! Please set it in the component properties."));
-	}
-	
+	SetMetalAmount(100.0f);
 }
 
 
@@ -49,3 +60,17 @@ void UAllomancy::DrainResources(float DeltaTime)
 	}
 }
 
+void UAllomancy::InitializeHUD()
+{
+	FSoftClassPath WidgetClassPath(TEXT("/Game/UI/WBP_AllomancyBar.WBP_AllomancyBar_C"));
+	TSubclassOf<UUserWidget> LoadedWidgetClass = Cast<UClass>(WidgetClassPath.TryLoadClass<UUserWidget>());
+
+	if (LoadedWidgetClass)
+	{
+		AllomancyHUD = LoadedWidgetClass;
+	}
+	else
+	{
+		UE_LOG(LogTemp, Warning, TEXT("Allomancy HUD Class not found! Please check the path."));
+	}
+}
