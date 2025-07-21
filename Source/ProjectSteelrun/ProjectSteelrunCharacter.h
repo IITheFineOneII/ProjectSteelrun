@@ -56,6 +56,9 @@ protected:
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UAllomancy* Allomancy = nullptr;
+
+private:
+	float CharacterMass = 80.0f; // Default mass of the character in kg
 public:
 
 	/** Constructor */
@@ -70,6 +73,9 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* SelectTargetAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* ActivateAbilityAction;
 protected:
 
 	/** Initialize input action bindings */
@@ -104,10 +110,6 @@ public:
 	UFUNCTION(BlueprintCallable, Category="Input")
 	virtual void DoJumpEnd();
 
-
-
-
-
 public:
 
 	/** Returns CameraBoom subobject **/
@@ -115,5 +117,8 @@ public:
 
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
+
+	int GetCharacterMass() const { return CharacterMass; }
+	void SetCharacterMass(float NewMass) { CharacterMass = NewMass; }
 };
 

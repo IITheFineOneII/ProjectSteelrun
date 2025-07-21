@@ -12,7 +12,7 @@
 #include "EnhancedInputSubsystems.h"
 #include "InputActionValue.h"
 #include "Blueprint/UserWidget.h"
-#include "MetalInteractable.h"
+#include "SteelrunObjectInterface.h"
 #include "Engine/OverlapResult.h" 
 #include "Abilities/Allomancy.h"
 #include "Enums/Metal.h"

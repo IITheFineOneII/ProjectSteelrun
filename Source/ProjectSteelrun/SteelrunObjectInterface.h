@@ -2,15 +2,15 @@
 
 #include "CoreMinimal.h"
 #include "UObject/Interface.h"
-#include "MetalInteractable.generated.h"
+#include "SteelrunObjectInterface.generated.h"
 
 UINTERFACE(MinimalAPI)
-class UMetalInteractable : public UInterface
+class USteelrunObjectInterface : public UInterface
 {
 	GENERATED_BODY()
 };
 
-class PROJECTSTEELRUN_API IMetalInteractable
+class PROJECTSTEELRUN_API ISteelrunObjectInterface
 {
 	GENERATED_BODY()
 
@@ -26,4 +26,5 @@ public:
 	/** Sets the target state (typically toggles the internal bool) */
 	UFUNCTION(BlueprintNativeEvent, BlueprintCallable, Category = "Metal")
 	void ToggleTarget();
+
 };

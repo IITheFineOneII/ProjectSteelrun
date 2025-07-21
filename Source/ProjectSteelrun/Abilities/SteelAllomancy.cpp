@@ -2,7 +2,7 @@
 
 
 #include "Abilities/SteelAllomancy.h"
-#include "MetalInteractable.h"
+#include "SteelrunObjectInterface.h"
 #include "Engine/OverlapResult.h"
 #include "ProjectSteelrunCharacter.h"
 #include "EnhancedInputComponent.h"
@@ -56,9 +56,9 @@ TArray<AActor*> USteelAllomancy::GetNearbyMetalObjects(float Radius)
 		for (const FOverlapResult& Result : OverlapResults)
 		{
 			AActor* Actor = Result.GetActor();
-			if (Actor && Actor->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
+			if (Actor && Actor->GetClass()->ImplementsInterface(USteelrunObjectInterface::StaticClass()))
 			{
-				bool bIsMetallic = IMetalInteractable::Execute_IsMetal(Actor);
+				bool bIsMetallic = ISteelrunObjectInterface::Execute_IsMetal(Actor);
 				if (bIsMetallic)
 				{
 					FoundActors.Add(Actor);
@@ -76,11 +76,11 @@ void USteelAllomancy::GenerateSteellines()
 
 	for (AActor* Actor : PreviousMetalObjects)
 	{
-		if (Actor && Actor->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
+		if (Actor && Actor->GetClass()->ImplementsInterface(USteelrunObjectInterface::StaticClass()))
 		{
-			if (IMetalInteractable::Execute_IsTarget(Actor) == true && (Actor && !NearbyMetals.Contains(Actor)))
+			if (ISteelrunObjectInterface::Execute_IsTarget(Actor) == true && (Actor && !NearbyMetals.Contains(Actor)))
 			{
-				IMetalInteractable::Execute_ToggleTarget(Actor);
+				ISteelrunObjectInterface::Execute_ToggleTarget(Actor);
 			}
 		}
 	}
@@ -100,9 +100,9 @@ void USteelAllomancy::GenerateSteellines()
 			TargetLocation = ClosestPoint; // Get the closest point on the metal object to the start location
 		}
 
-		if (Object && Object->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
+		if (Object && Object->GetClass()->ImplementsInterface(USteelrunObjectInterface::StaticClass()))
 		{
-			bool IsTarget = IMetalInteractable::Execute_IsTarget(Object);
+			bool IsTarget = ISteelrunObjectInterface::Execute_IsTarget(Object);
 			if (IsTarget)
 			{
 				DrawDebugLine(
@@ -188,6 +188,18 @@ void USteelAllomancy::BindInput(UEnhancedInputComponent* InputComponent)
 		this,
 		&USteelAllomancy::ToggleTargeting
 	);
+
+	if (!InputComponent || !PlayerOwner || !PlayerOwner->ActivateAbilityAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SteelAllomancy::BindInput - Missing input/action"));
+		return;
+	}
+	InputComponent->BindAction(
+		PlayerOwner->ActivateAbilityAction,
+		ETriggerEvent::Started,
+		this,
+		&USteelAllomancy::ActivateAbility
+	);
 }
 
 void USteelAllomancy::ToggleTargeting()
@@ -209,8 +221,67 @@ void USteelAllomancy::ToggleTargeting()
 		if (AllowedActors.Contains(HitActor))
 		{
 
-			IMetalInteractable::Execute_ToggleTarget(HitActor);
+			ISteelrunObjectInterface::Execute_ToggleTarget(HitActor);
 
+		}
+	}
+}
+
+void USteelAllomancy::ActivateAbility()
+{
+	if (IsSteelSightActive)
+	{
+		TArray<AActor*> NearbyMetals = GetNearbyMetalObjects(SteelSightRadius);
+		for (AActor* Object : NearbyMetals)
+		{
+			if (Object && Object->GetClass()->ImplementsInterface(USteelrunObjectInterface::StaticClass()))
+			{
+				if (ISteelrunObjectInterface::Execute_IsTarget(Object))
+				{
+					FVector PlayerLocation = CharacterOwner->GetActorLocation();
+					FVector ObjectLocation = Object->GetActorLocation();
+					FVector Direction = (ObjectLocation - PlayerLocation).GetSafeNormal();
+
+					float Distance = FVector::Distance(PlayerLocation, ObjectLocation);
+
+					float ForceMagnitude = FMath::Clamp(((SteelSightRadius*ForceMultiplier) / Distance), ForceMultiplier, 0.0f);
+
+					UPrimitiveComponent* ObjectComp = Cast<UPrimitiveComponent>(Object->GetRootComponent());
+					float ObjectMass = ObjectComp ? ObjectComp->GetMass() : TNumericLimits<float>::Max(); // immovable if no mass
+
+					// Retrieve character mass from CharacterOwner
+					AProjectSteelrunCharacter* SteelrunCharacter = Cast<AProjectSteelrunCharacter>(CharacterOwner);
+					float PlayerMass = SteelrunCharacter->GetCharacterMass();
+
+
+					FVector IntendedImpulseOnObject = Direction * ForceMagnitude * (PlayerMass / (PlayerMass + ObjectMass));
+					FVector IntendedImpulseOnPlayer = -Direction * ForceMagnitude * (ObjectMass / (PlayerMass + ObjectMass));
+					FVector OldVelocity = ObjectComp->GetPhysicsLinearVelocity();
+					ObjectComp->AddImpulse(IntendedImpulseOnObject, NAME_None, true);
+					FVector NewVelocity = ObjectComp->GetPhysicsLinearVelocity();
+					FVector DeltaV = NewVelocity - OldVelocity;
+
+					FVector TotalForce = Direction * ForceMagnitude;
+					FVector IntendedDir = IntendedImpulseOnObject.GetSafeNormal();
+					float ActualImpulseMagnitude = ObjectMass * FVector::DotProduct(DeltaV, IntendedDir);
+					ActualImpulseMagnitude = FMath::Clamp(ActualImpulseMagnitude, 0.0f, IntendedImpulseOnObject.Size());
+					float IntendedImpulseMagnitude = IntendedImpulseOnObject.Size();
+					float LeftoverFraction = (IntendedImpulseMagnitude > KINDA_SMALL_NUMBER)
+						? 1.0f - (ActualImpulseMagnitude / IntendedImpulseMagnitude)
+						: 0.0f;
+					FVector ExtraImpulseOnPlayer = -Direction * ForceMagnitude * LeftoverFraction * (PlayerMass / (PlayerMass + ObjectMass));
+					FVector FinalImpulseOnPlayer = IntendedImpulseOnPlayer + ExtraImpulseOnPlayer;
+					ACharacter* Character = Cast<ACharacter>(CharacterOwner);
+					if (Character)
+					{
+						Character->LaunchCharacter(FinalImpulseOnPlayer, true, true);
+					}
+
+					UE_LOG(LogTemp, Warning, TEXT("Intended impulse on object: %s | Applied: %f%%"),
+						*IntendedImpulseOnObject.ToString(), 100.0f * (1.0f - LeftoverFraction));
+					UE_LOG(LogTemp, Warning, TEXT("Final impulse on player: %s"), *FinalImpulseOnPlayer.ToString());
+				}
+			}
 		}
 	}
 }

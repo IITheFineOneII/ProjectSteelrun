@@ -36,4 +36,5 @@ public:
 	void SetMetal(EMetal NewMetal) { Metal = NewMetal; }
 	void DrainResources(float DeltaTime);
 	void InitializeHUD();
+	virtual void ActivateAbility() {}
 };

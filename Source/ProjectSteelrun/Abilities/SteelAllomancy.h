@@ -19,6 +19,9 @@ private:
 	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Allomancy|Steel", meta = (AllowPrivateAccess = "true"))
 	float SteelSightRadius = 1500.0f;
 
+	UPROPERTY(EditAnywhere, BlueprintReadOnly, Category = "Allomancy|Steel", meta = (AllowPrivateAccess = "true"))
+	float ForceMultiplier = 100.0f;
+
 	TArray<AActor*> PreviousMetalObjects;
 	AActor* CharacterOwner = GetOwner();
 public:
@@ -29,6 +32,7 @@ public:
 	void GenerateSteellines();
 	void ToggleSteelsight();
 	void ToggleTargeting();
+	virtual void ActivateAbility() override;
 	virtual void TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction) override;
 	virtual void BindInput(UEnhancedInputComponent* InputComponent) override;
 
