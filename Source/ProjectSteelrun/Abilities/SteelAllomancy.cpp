@@ -58,7 +58,6 @@ TArray<AActor*> USteelAllomancy::GetNearbyMetalObjects(float Radius)
 			AActor* Actor = Result.GetActor();
 			if (Actor && Actor->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
 			{
-				UE_LOG(LogTemp, Warning, TEXT("Target Found"));
 				bool bIsMetallic = IMetalInteractable::Execute_IsMetal(Actor);
 				if (bIsMetallic)
 				{
@@ -75,6 +74,17 @@ void USteelAllomancy::GenerateSteellines()
 {
 	TArray<AActor*> NearbyMetals = GetNearbyMetalObjects(SteelSightRadius);
 
+	for (AActor* Actor : PreviousMetalObjects)
+	{
+		if (Actor && Actor->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
+		{
+			if (IMetalInteractable::Execute_IsTarget(Actor) == true && (Actor && !NearbyMetals.Contains(Actor)))
+			{
+				IMetalInteractable::Execute_ToggleTarget(Actor);
+			}
+		}
+	}
+
 	FVector StartLocation = CharacterOwner->GetActorLocation() + FVector(0, 0, 40); // Middle of chest
 
 	for (AActor* Object : NearbyMetals)
@@ -89,17 +99,52 @@ void USteelAllomancy::GenerateSteellines()
 			PrimComp->GetClosestPointOnCollision(StartLocation, ClosestPoint);
 			TargetLocation = ClosestPoint; // Get the closest point on the metal object to the start location
 		}
-		DrawDebugLine(
-			GetWorld(),
-			StartLocation,
-			TargetLocation,
-			FColor::Blue,
-			false,
-			0.0f,
-			0,
-			2.0f
-		);
+
+		if (Object && Object->GetClass()->ImplementsInterface(UMetalInteractable::StaticClass()))
+		{
+			bool IsTarget = IMetalInteractable::Execute_IsTarget(Object);
+			if (IsTarget)
+			{
+				DrawDebugLine(
+					GetWorld(),
+					StartLocation,
+					TargetLocation,
+					FColor::Orange,
+					false,
+					0.0f,
+					0,
+					2.0f
+				);
+			}
+			else
+			{
+				DrawDebugLine(
+					GetWorld(),
+					StartLocation,
+					TargetLocation,
+					FColor::Blue,
+					false,
+					0.0f,
+					0,
+					2.0f
+				);
+			}
+		}
+		else
+		{
+			DrawDebugLine(
+				GetWorld(),
+				StartLocation,
+				TargetLocation,
+				FColor::Red,
+				false,
+				0.0f,
+				0,
+				2.0f
+			);
+		}
 	}
+	PreviousMetalObjects = NearbyMetals; // Update the previous metal objects for the next tick
 }
 
 void USteelAllomancy::TickComponent(float DeltaTime, ELevelTick TickType, FActorComponentTickFunction* ThisTickFunction)
@@ -131,4 +176,41 @@ void USteelAllomancy::BindInput(UEnhancedInputComponent* InputComponent)
 		this,
 		&USteelAllomancy::ToggleSteelsight
 	);
+
+	if (!InputComponent || !PlayerOwner || !PlayerOwner->SelectTargetAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SteelAllomancy::BindInput - Missing input/action"));
+		return;
+	}
+	InputComponent->BindAction(
+		PlayerOwner->SelectTargetAction,
+		ETriggerEvent::Started,
+		this,
+		&USteelAllomancy::ToggleTargeting
+	);
+}
+
+void USteelAllomancy::ToggleTargeting()
+{
+	FVector Start = CharacterOwner->GetActorLocation();
+	FVector ForwardVector = CharacterOwner->GetActorForwardVector();
+	FVector End = Start + ForwardVector * SteelSightRadius;
+
+	FHitResult HitResult;
+	FCollisionQueryParams Params;
+	Params.AddIgnoredActor(CharacterOwner);
+
+	if (GetWorld()->LineTraceSingleByChannel(HitResult, Start, End, ECC_Visibility, Params))
+	{
+		AActor* HitActor = HitResult.GetActor();
+		if (!HitActor) return;
+
+		TArray<AActor*> AllowedActors = GetNearbyMetalObjects(SteelSightRadius);
+		if (AllowedActors.Contains(HitActor))
+		{
+
+			IMetalInteractable::Execute_ToggleTarget(HitActor);
+
+		}
+	}
 }

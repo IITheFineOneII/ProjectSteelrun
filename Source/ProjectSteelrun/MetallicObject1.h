@@ -8,26 +8,29 @@
 UCLASS()
 class PROJECTSTEELRUN_API AMetallicObject1 : public AActor, public IMetalInteractable
 {
-	GENERATED_BODY()
-	
-public:	
-	// Sets default values for this actor's properties
-	AMetallicObject1();
+    GENERATED_BODY()
+
+public:
+    AMetallicObject1();
 
 protected:
-	// Called when the game starts or when spawned
-	virtual void BeginPlay() override;
+    virtual void BeginPlay() override;
 
-public:	
-	// Called every frame
-	virtual void Tick(float DeltaTime) override;
+public:
+    virtual void Tick(float DeltaTime) override;
 
+    // Interface implementations
+    virtual bool IsMetal_Implementation() const override;
+    virtual bool IsTarget_Implementation() const override;
 
-	virtual bool IsMetal_Implementation() const;
+    // Toggles the target state
+    virtual void ToggleTarget_Implementation() override;
 
-	virtual bool IsTarget_Implementation() const;
+    UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components")
+    UStaticMeshComponent* Mesh;
 
-
-	UPROPERTY(VisibleAnywhere)
-	UStaticMeshComponent* Mesh;
+private:
+    // Internal target state
+    UPROPERTY(VisibleAnywhere, Category = "Metal")
+    bool IsTarget = false;
 };

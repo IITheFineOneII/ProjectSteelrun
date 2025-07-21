@@ -68,7 +68,8 @@ public:
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* ToggleSightAbilityAction;
 
-
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SelectTargetAction;
 protected:
 
 	/** Initialize input action bindings */

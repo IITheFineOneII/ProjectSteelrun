@@ -12,6 +12,8 @@ AMetallicObject1::AMetallicObject1()
 
 	Mesh->SetSimulatePhysics(true);
 
+	IsTarget = false;
+
 }
 
 // Called when the game starts or when spawned
@@ -35,5 +37,12 @@ bool AMetallicObject1::IsMetal_Implementation() const
 
 bool AMetallicObject1::IsTarget_Implementation() const
 {
-	return false;
+	return IsTarget;
+}
+
+void AMetallicObject1::ToggleTarget_Implementation()
+{
+	IsTarget = !IsTarget;
+	UE_LOG(LogTemp, Log, TEXT("Target state set to: %s"), IsTarget ? TEXT("true") : TEXT("false"));
+
 }
