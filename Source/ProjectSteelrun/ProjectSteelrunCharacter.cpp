@@ -15,6 +15,7 @@
 #include "SteelrunObjectInterface.h"
 #include "Engine/OverlapResult.h" 
 #include "Abilities/Allomancy.h"
+#include "Abilities/BaseAbilities.h"
 #include "Enums/Metal.h"
 
 DEFINE_LOG_CATEGORY(LogTemplateCharacter);
@@ -136,6 +137,7 @@ void AProjectSteelrunCharacter::DoJumpEnd()
 {
 	// signal the character to stop jumping
 	StopJumping();
+
 }
 
 void AProjectSteelrunCharacter::BeginPlay()
@@ -148,6 +150,12 @@ void AProjectSteelrunCharacter::PostInitializeComponents()
 {
 	Super::PostInitializeComponents();
 
+
+}
+
+void AProjectSteelrunCharacter::Tick(float DeltaTime)
+{
+	Super::Tick(DeltaTime);
 
 }
 
@@ -172,8 +180,16 @@ void AProjectSteelrunCharacter::SetPlayerClass(EMetal Metal)
 
 	// Spawn new one
 	Allomancy = NewObject<UAllomancy>(this, AllomanticType, TEXT("AllomancyComponent"));
+	Ability = NewObject<UBaseAbilities>(this, UBaseAbilities::StaticClass(), TEXT("BaseAbilitiesComponent"));
 	if (Allomancy)
 	{
+		Ability->RegisterComponent();
+		Ability->CreationMethod = EComponentCreationMethod::Instance;
+		if (UEnhancedInputComponent* EnhancedInput = Cast<UEnhancedInputComponent>(InputComponent))
+		{
+			Ability->BindInput(EnhancedInput);
+		}
+
 		Allomancy->RegisterComponent();
 		Allomancy->CreationMethod = EComponentCreationMethod::Instance;
 		Allomancy->SetMetal(Metal);

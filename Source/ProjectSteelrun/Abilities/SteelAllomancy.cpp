@@ -6,10 +6,12 @@
 #include "Engine/OverlapResult.h"
 #include "ProjectSteelrunCharacter.h"
 #include "EnhancedInputComponent.h"
+#include "GameFramework/CharacterMovementComponent.h"
 
 USteelAllomancy::USteelAllomancy()
 {
 	PrimaryComponentTick.bCanEverTick = true;
+
 }
 
 USteelAllomancy::~USteelAllomancy()
@@ -159,6 +161,7 @@ void USteelAllomancy::TickComponent(float DeltaTime, ELevelTick TickType, FActor
 			UE_LOG(LogTemp, Warning, TEXT("Steelsight Deactivated due to resource depletion"));
 		}
 		GenerateSteellines();
+		FocusModeHandler();
 	}
 }
 
@@ -196,10 +199,36 @@ void USteelAllomancy::BindInput(UEnhancedInputComponent* InputComponent)
 	}
 	InputComponent->BindAction(
 		PlayerOwner->ActivateAbilityAction,
-		ETriggerEvent::Started,
+		ETriggerEvent::Triggered,
 		this,
 		&USteelAllomancy::ActivateAbility
 	);
+
+	if (!InputComponent || !PlayerOwner || !PlayerOwner->SliderAddAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SteelAllomancy::BindInput - Missing input/action"));
+		return;
+	}
+	InputComponent->BindAction(
+		PlayerOwner->SliderAddAction,
+		ETriggerEvent::Triggered,
+		this,
+		&USteelAllomancy::AddPower
+	);
+
+
+	if (!InputComponent || !PlayerOwner || !PlayerOwner->SliderSubAction)
+	{
+		UE_LOG(LogTemp, Warning, TEXT("SteelAllomancy::BindInput - Missing input/action"));
+		return;
+	}
+	InputComponent->BindAction(
+		PlayerOwner->SliderSubAction,
+		ETriggerEvent::Triggered,
+		this,
+		&USteelAllomancy::SubPower
+	);
+
 }
 
 void USteelAllomancy::ToggleTargeting()
@@ -228,6 +257,10 @@ void USteelAllomancy::ToggleTargeting()
 }
 
 void USteelAllomancy::ActivateAbility()
+///  F= (A * (m1 / (m1 + m2))/(r2)  base formula for gravitational force for player 
+///  F= (A * (m2 / (m1 + m2))/(r2)  base formula for gravitational force for object
+///  F = Force, A = Allomantic Power, m1 = mass of player, m2 = mass of object, r = distance between player and object, (m1 / (m1 + m2)) = Newtons third law of motion
+///  Design the script with this premise. Dont forget to account for changes in velocity from other objects such as the floor.
 {
 	if (IsSteelSightActive)
 	{
@@ -244,7 +277,7 @@ void USteelAllomancy::ActivateAbility()
 
 					float Distance = FVector::Distance(PlayerLocation, ObjectLocation);
 
-					float ForceMagnitude = FMath::Clamp(((SteelSightRadius*ForceMultiplier) / Distance), ForceMultiplier, 0.0f);
+					float ForceMagnitude = FMath::Clamp(((SteelSightRadius*GetForceMultiplier()) / Distance), GetForceMultiplier(), 0.0f);
 
 					UPrimitiveComponent* ObjectComp = Cast<UPrimitiveComponent>(Object->GetRootComponent());
 					float ObjectMass = ObjectComp ? ObjectComp->GetMass() : TNumericLimits<float>::Max(); // immovable if no mass
@@ -280,8 +313,40 @@ void USteelAllomancy::ActivateAbility()
 					UE_LOG(LogTemp, Warning, TEXT("Intended impulse on object: %s | Applied: %f%%"),
 						*IntendedImpulseOnObject.ToString(), 100.0f * (1.0f - LeftoverFraction));
 					UE_LOG(LogTemp, Warning, TEXT("Final impulse on player: %s"), *FinalImpulseOnPlayer.ToString());
+
+					//ISteelrunObjectInterface::Execute_ToggleTarget(Object); // Toggle target state after applying force
 				}
 			}
 		}
 	}
+}
+
+void USteelAllomancy::FocusModeHandler()
+{
+	AProjectSteelrunCharacter* SteelrunCharacterOwner = Cast<AProjectSteelrunCharacter>(CharacterOwner);
+	if (!SteelrunCharacterOwner) return;
+
+	const UCharacterMovementComponent* MoveComp = SteelrunCharacterOwner->GetCharacterMovement();
+	if (!MoveComp) return;
+
+	bool ShouldUseFocus = MoveComp->IsFalling();
+
+	if (ShouldUseFocus != GetCanUseFocusMode()) 
+	{
+		SetCanUseFocusMode(ShouldUseFocus);
+	}
+}
+
+void USteelAllomancy::AddPower()
+{
+	float Force = GetForceMultiplier() + GetForceAdjustStep();
+	Force = FMath::Clamp(Force, GetMinForceMultiplier(), GetMaxForceMultiplier());
+	SetForceMultiplier(Force);
+}
+
+void USteelAllomancy::SubPower()
+{
+	float Force = GetForceMultiplier() - GetForceAdjustStep();
+	Force = FMath::Clamp(Force, GetMinForceMultiplier(), GetMaxForceMultiplier());
+	SetForceMultiplier(Force);
 }

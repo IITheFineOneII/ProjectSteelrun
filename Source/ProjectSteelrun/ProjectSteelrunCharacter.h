@@ -12,6 +12,7 @@ class USpringArmComponent;
 class UCameraComponent;
 class UInputAction;
 class UAllomancy;
+class UBaseAbilities;
 class AllomancyComponentFactory;
 struct FInputActionValue;
 
@@ -57,6 +58,9 @@ protected:
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
 	UAllomancy* Allomancy = nullptr;
 
+	UPROPERTY(VisibleAnywhere, BlueprintReadOnly, Category = "Components", meta = (AllowPrivateAccess = "true"))
+	UBaseAbilities* Ability = nullptr;
+
 private:
 	float CharacterMass = 80.0f; // Default mass of the character in kg
 public:
@@ -65,6 +69,7 @@ public:
 	AProjectSteelrunCharacter();	
 
 	virtual void BeginPlay() override;
+	virtual void Tick(float DeltaTime) override;
 
 	virtual void PostInitializeComponents() override;
 
@@ -76,6 +81,15 @@ public:
 
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
 	UInputAction* ActivateAbilityAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* FocusModeAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SliderAddAction;
+
+	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "Input")
+	UInputAction* SliderSubAction;
 protected:
 
 	/** Initialize input action bindings */
@@ -120,5 +134,7 @@ public:
 
 	int GetCharacterMass() const { return CharacterMass; }
 	void SetCharacterMass(float NewMass) { CharacterMass = NewMass; }
+	UAllomancy* GetAllomancyComponent() const { return Allomancy; }
+	UBaseAbilities* GetAbilityComponent() const { return Ability; }
 };
 
